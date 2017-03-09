@@ -7,7 +7,7 @@ warnings.filterwarnings('ignore')
 import numpy as np
 import os
 import theano.sandbox.cuda
-theano.sandbox.cuda.use("gpu0")
+theano.sandbox.cuda.use("gpu1")
 import theano
 import theano.tensor as T
 import lasagne
@@ -17,15 +17,14 @@ import skimage
 import skimage.io
 from skimage.color import gray2rgb
 
-
 def get_cmd_options():
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--mem_file", default = '/unreliable/aliaksandr/memorability/texture_nets/abstract_art_sw10.txt', 
+    parser.add_argument("--mem_file", default = '/unreliable/aliaksandr/memorability/texture_nets/abstract_art_sw2_50.txt', 
                         help = "File with memorability mesurments")
     parser.add_argument("--content_img_dir", default = '/unreliable/aliaksandr/memorability/lamem/lamem/images/',
                         help = "directory with content images")
-    parser.add_argument("--observed_part_of_samples", default = 1, type = float,
+    parser.add_argument("--observed_part_of_samples", default = 0.5, type = float,
                         help = "Fraction of seed that is used for training")
     parser.add_argument("--random_state", default = 0, type = int,
                         help = "Seed for train/test/val split and generating and selecting observed_part_of_samples")
@@ -35,16 +34,16 @@ def get_cmd_options():
                         help = "Part of data that is used for early stoping")
     parser.add_argument("--test_size", default = 0.1,  type = float, 
                         help = "Part of data that is used for testing")
-    parser.add_argument("--trainable_layers", default = 'fc7,fc6,conv5_3,conv5_2,conv5_1',
+    parser.add_argument("--trainable_layers", default = 'fc7,fc6,conv5_part1,conv5_part2,conv4_part1,conv4_part2',
                         help = "Which layers of default network finetune")
     parser.add_argument("--learning_rate", default = 1e-3, type = float)
     parser.add_argument("--learning_method", default = 'nesterov_momentum')
-    parser.add_argument("--output_model", default = 'model_script.npy', help = "Trained network")
-    parser.add_argument("--network", default = 'vgg16', 
+    parser.add_argument("--output_model", default = 'alex05-50.npy', help = "Trained network")
+    parser.add_argument("--network", default = 'alex', 
                         help = "File with network definition, should define build_model transform_train, transform_test, transform_val")
-    parser.add_argument("--num_epochs", default = 1000, type = int,
+    parser.add_argument("--num_epochs", default = 150, type = int,
                         help = "Number of iterations throught train set")
-    parser.add_argument("--batch_size", default = 50, type = int,
+    parser.add_argument("--batch_size", default = 64, type = int,
                         help = "Size of the batch")
   
     options = parser.parse_args()
@@ -109,7 +108,7 @@ def pass_dataset(options, x, y, mask, fun, dataset):
 def create_net(options, num_classes):
     net_file = __import__(options['network'])
     net = net_file.build_model()
-    net['out'] = lasagne.layers.DenseLayer(net['fc7_dropout'], num_units = num_classes, nonlinearity = None, name = 'out')
+    net['out'] = lasagne.layers.DenseLayer(net['fc7'], num_units = num_classes, nonlinearity = None, name = 'out')
     return net
 
 
@@ -191,11 +190,22 @@ def test(options, net, loss_fun, x_test, y_test, mask_test):
     log_string = "Test error: squre_error %f , accuracy_error %f" % test_err
     print (log_string)   
     
-    
+ 
+def compute_baseline(y_train, y_test, mask_train):
+    predictions = ((y_train * mask_train).sum(axis = 0) / mask_train.sum(axis = 0)).reshape((1, y_train.shape[1]))
+    square_gap = ((y_test - predictions) ** 2).mean()
+    accuracy = (y_test * predictions > 0).mean()
+    print ("Baseline : square_error %f, accuracy_error %s" % (square_gap, accuracy))
+    return square_gap, accuracy
+
 def main():
     options = get_cmd_options()
     X, Y = load_data(options)
     x_train, x_val, x_test, y_train, y_val, y_test, mask_train, mask_val, mask_test = split_data(options, X, Y)
+    print ("Baseline validation")
+    compute_baseline(y_train, y_val, mask_train)
+    print ("Baseline test")
+    compute_baseline(y_train, y_test, mask_train)
     net, loss_fun = train(options, x_train, x_val, y_train, y_val, mask_train, mask_val)
     test(options, net, loss_fun, x_test, y_test, mask_test)
     
