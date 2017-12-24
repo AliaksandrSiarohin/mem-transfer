@@ -5,7 +5,6 @@ from lasagne.layers import DenseLayer
 from lasagne.layers import NonlinearityLayer
 from lasagne.layers import DropoutLayer
 from lasagne.layers import Pool2DLayer as PoolLayer
-from lasagne.layers.dnn import Conv2DDNNLayer as ConvLayer
 from lasagne.nonlinearities import softmax
 from skimage.transform import resize
 from skimage import img_as_ubyte
@@ -166,6 +165,7 @@ def crop(image, shift = 'random'):
                           np.random.randint(0, img_size[1] - CROP_SIZE[1], size = (1,))])
     else :
         shift = (np.array(img_size) - np.array(CROP_SIZE)) / 2
+    shift = np.squeeze(shift)
     return image[shift[0]:(shift[0] + CROP_SIZE[0]), shift[1]:(shift[1] + CROP_SIZE[1])]
 
 central_crop = lambda i: crop(i, shift = 'central')

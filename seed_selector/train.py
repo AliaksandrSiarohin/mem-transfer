@@ -6,8 +6,6 @@ import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
 import os
-import theano.sandbox.cuda
-theano.sandbox.cuda.use("gpu1")
 import theano
 import theano.tensor as T
 import lasagne
@@ -20,11 +18,11 @@ from skimage.color import gray2rgb
 def get_cmd_options():
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--mem_file", default = '/unreliable/aliaksandr/memorability/texture_nets/abstract_art_sw2_50.txt', 
+    parser.add_argument("--mem_file", default = '../../texture_nets/abstact_art_swA.txt', 
                         help = "File with memorability mesurments")
-    parser.add_argument("--content_img_dir", default = '/unreliable/aliaksandr/memorability/lamem/lamem/images/',
+    parser.add_argument("--content_img_dir", default = '../../lamem/images/',
                         help = "directory with content images")
-    parser.add_argument("--observed_part_of_samples", default = 0.5, type = float,
+    parser.add_argument("--observed_part_of_samples", default = 1, type = float,
                         help = "Fraction of seed that is used for training")
     parser.add_argument("--random_state", default = 0, type = int,
                         help = "Seed for train/test/val split and generating and selecting observed_part_of_samples")
@@ -38,7 +36,7 @@ def get_cmd_options():
                         help = "Which layers of default network finetune")
     parser.add_argument("--learning_rate", default = 1e-3, type = float)
     parser.add_argument("--learning_method", default = 'nesterov_momentum')
-    parser.add_argument("--output_model", default = 'alex05-50.npy', help = "Trained network")
+    parser.add_argument("--output_model", default = 'alex-swA.npy', help = "Trained network")
     parser.add_argument("--network", default = 'alex', 
                         help = "File with network definition, should define build_model transform_train, transform_test, transform_val")
     parser.add_argument("--num_epochs", default = 150, type = int,
@@ -62,6 +60,8 @@ def load_data(options):
     
     df = pd.read_csv(options['mem_file'])
     pivot = pd.pivot(df['content_img_name'], df['seed_img_name'], df['diff_mem_score'])
+    pivot = pivot.sort_index(axis=1)
+    print (pivot.columns)
     image_names = np.array(pivot.index)
     X = read_images(image_names, options['content_img_dir'])
     Y = np.array(pivot)

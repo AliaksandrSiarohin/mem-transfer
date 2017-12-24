@@ -6,8 +6,6 @@ import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
 import os
-import theano.sandbox.cuda
-theano.sandbox.cuda.use("gpu0")
 import theano
 import theano.tensor as T
 import lasagne
@@ -21,13 +19,13 @@ from skimage.color import gray2rgb
 def get_cmd_options():
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--mem_file", default = '/unreliable/aliaksandr/memorability/texture_nets/abstract_art_sw2_20.txt', 
+    parser.add_argument("--mem_file", default = '../../texture_nets/abstact_art_swA.txt', 
                         help = "File with memorability mesurments")
-    parser.add_argument("--mem_file_external", default = '/unreliable/aliaksandr/memorability/texture_nets/abstract_art_external_sw2_20.txt', 
+    parser.add_argument("--mem_file_external", default = '../../texture_nets/abstact_art_external_swA.txt', 
                         help = "File with memorability mesurments")
-    parser.add_argument("--observed_part_of_samples", default = 0.5,
+    parser.add_argument("--observed_part_of_samples", default = 1,
               type = float, help = "Fraction of seed that is used for training")
-    parser.add_argument("--content_img_dir", default = '/unreliable/aliaksandr/memorability/lamem/lamem/images/',
+    parser.add_argument("--content_img_dir", default = '../../lamem/images/',
                         help = "directory with content images")
     parser.add_argument("--random_state", default = 0, type = int,
                         help = "Seed for train/test/val split and generating and selecting observed_part_of_samples")
@@ -37,12 +35,12 @@ def get_cmd_options():
                         help = "Part of data that is used for early stoping")
     parser.add_argument("--test_size", default = 0.1,  type = float, 
                         help = "Part of data that is used for testing")
-    parser.add_argument("--model", default = 'alex05-20.npy', help = "Trained network")
+    parser.add_argument("--model", default = 'alex-swA.npy', help = "Trained network")
     parser.add_argument("--network", default = 'alex', 
                         help = "File with network definition, should define build_model transform_train, transform_test, transform_val")
     parser.add_argument("--batch_size", default = 64, type = int,
                         help = "Size of the batch")
-    parser.add_argument("--result_folder", default = "results_20",
+    parser.add_argument("--result_folder", default = "results_swA",
                         help = "Folder where results will be stored")
       
     options = parser.parse_args()
