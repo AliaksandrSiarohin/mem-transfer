@@ -42,6 +42,8 @@ def get_cmd_options():
                         help = "Size of the batch")
     parser.add_argument("--result_folder", default = "results_swA",
                         help = "Folder where results will be stored")
+    parser.add_argument("--separate_heads", default = 1, type=int,
+                        help = "Number of heads")
       
     options = parser.parse_args()
 

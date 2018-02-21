@@ -9,6 +9,7 @@ import os
 import theano
 import theano.tensor as T
 import lasagne
+from lasagne.layers import DenseLayer, ConcatLayer
 from sklearn.model_selection import train_test_split
 import time
 import skimage
@@ -32,7 +33,7 @@ def get_cmd_options():
                         help = "Part of data that is used for early stoping")
     parser.add_argument("--test_size", default = 0.1,  type = float, 
                         help = "Part of data that is used for testing")
-    parser.add_argument("--trainable_layers", default = 'fc7,fc6,conv5_part1,conv5_part2,conv4_part1,conv4_part2',
+    parser.add_argument("--trainable_layers", default = 'fc7,fc6,conv5_part1,conv5_part2,conv4_part1,conv4_part2,conv3,conv2_part1,conv2_part2,conv1_part1,conv1_part2',
                         help = "Which layers of default network finetune")
     parser.add_argument("--learning_rate", default = 1e-3, type = float)
     parser.add_argument("--learning_method", default = 'nesterov_momentum')
@@ -43,7 +44,10 @@ def get_cmd_options():
                         help = "Number of iterations throught train set")
     parser.add_argument("--batch_size", default = 64, type = int,
                         help = "Size of the batch")
+    parser.add_argument("--separate_heads", default = 1, type = int,
+                        help = "Number of network heads")
   
+ 
     options = parser.parse_args()
 
     return options.__dict__
@@ -61,7 +65,6 @@ def load_data(options):
     df = pd.read_csv(options['mem_file'])
     pivot = pd.pivot(df['content_img_name'], df['seed_img_name'], df['diff_mem_score'])
     pivot = pivot.sort_index(axis=1)
-    print (pivot.columns)
     image_names = np.array(pivot.index)
     X = read_images(image_names, options['content_img_dir'])
     Y = np.array(pivot)
@@ -108,7 +111,24 @@ def pass_dataset(options, x, y, mask, fun, dataset):
 def create_net(options, num_classes):
     net_file = __import__(options['network'])
     net = net_file.build_model()
-    net['out'] = lasagne.layers.DenseLayer(net['fc7'], num_units = num_classes, nonlinearity = None, name = 'out')
+    outs = []
+    print (options)
+    for i in range(options['separate_heads']):
+	W, b = net['fc6'].get_params()
+        net['fc6' + str(i)] = DenseLayer(
+            		net['pool5'],num_units=4096,
+            		nonlinearity=lasagne.nonlinearities.rectify, W = W.get_value(), b = b.get_value())
+        W, b = net['fc7'].get_params()
+    	net['fc7' + str(i)] = DenseLayer(
+        		net['fc6' + str(i)],
+        		num_units=4096,
+        		nonlinearity=lasagne.nonlinearities.rectify, W = W.get_value(), b = b.get_value())
+
+
+    	net['out' + str(i)] = DenseLayer(net['fc7' + str(i)], 
+			num_units = num_classes/options['separate_heads'], nonlinearity = None)
+        outs.append(net['out' + str(i)])
+    net['out'] = ConcatLayer(outs, name='out')
     return net
 
 
@@ -134,7 +154,14 @@ def train(options, x_train, x_val, y_train, y_val, mask_train, mask_val):
     loss_acc_test = acc_loss(out_score, y_det, mask)
     
     all_weights = net['out'].get_params()
-    for layer_name in options['trainable_layers'].split(','):
+    trainable_layers = options['trainable_layers'].split(',')
+    trainable_layers += ['fc7' + str(i) for i in range(options['separate_heads']) if 'fc7' in trainable_layers]
+    trainable_layers.remove('fc7')
+    trainable_layers += ['fc6' + str(i) for i in range(options['separate_heads']) if 'fc6' in trainable_layers]
+    trainable_layers.remove('fc6')
+    trainable_layers += ['out' + str(i) for i in range(options['separate_heads'])]
+    #print (trainable_layers)
+    for layer_name in trainable_layers:
         if layer_name in net:
             all_weights += net[layer_name].get_params()
         else:
